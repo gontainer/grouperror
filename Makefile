@@ -4,9 +4,6 @@ tests:
 code-coverage:
 	go tool cover -func=coverage.out
 
-gci:
-	gci write --skip-generated --skip-vendor .
-
 lint:
 	golangci-lint run
 
