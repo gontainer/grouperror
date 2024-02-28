@@ -124,6 +124,21 @@ func (g *groupError) As(target any) bool {
 	return false
 }
 
+/*
+Collection extracts an error collection from the given error if it has a `Collection() []error` method.
+It works recursively.
+
+	err := grouperror.Prefix("my group: ", errors.New("error1"), nil, errors.New("error2"))
+	for _, x := range grouperror.Collection(err) {
+	    fmt.Println(x)
+	}
+	// Output:
+	// my group: error1
+	// my group: error2
+
+See [Join].
+See [Prefix].
+*/
 func Collection(err error) []error {
 	if err == nil {
 		return nil
