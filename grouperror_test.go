@@ -22,6 +22,7 @@ package grouperror_test
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -86,10 +87,63 @@ func TestPrefixedGroup(t *testing.T) {
 	})
 }
 
+type wrappedError struct {
+	error
+}
+
+func (w *wrappedError) Collection() []error {
+	return []error{w.error}
+}
+
 func TestCollection(t *testing.T) {
 	t.Parallel()
 
-	assert.Nil(t, grouperror.Collection(nil))
+	t.Run("Nil", func(t *testing.T) {
+		t.Parallel()
+
+		assert.Nil(t, grouperror.Collection(nil))
+	})
+
+	//nolint:goerr113
+	t.Run("Custom error", func(t *testing.T) {
+		t.Parallel()
+
+		t.Run("Implements interface{ Collection() []error }", func(t *testing.T) {
+			t.Parallel()
+
+			err := &wrappedError{
+				error: grouperror.Prefix("my group: ", errors.New("error #1"), errors.New("error #2")),
+			}
+
+			expected := []string{
+				"my group: error #1",
+				"my group: error #2",
+			}
+
+			collection := grouperror.Collection(err)
+			require.Len(t, collection, 2)
+
+			for i, x := range collection {
+				require.EqualError(t, x, expected[i])
+			}
+		})
+
+		t.Run("Does not implement interface{ Collection() []error }", func(t *testing.T) {
+			t.Parallel()
+
+			parent := grouperror.Prefix("my group: ", errors.New("error #1"), errors.New("error #2"))
+			err := &wrappedError{
+				error: fmt.Errorf("error: %w", parent),
+			}
+
+			expected := "error: my group: error #1\n" +
+				"my group: error #2"
+
+			collection := grouperror.Collection(err)
+			require.Len(t, collection, 1)
+			require.EqualError(t, collection[0], expected)
+		})
+	})
 }
 
 func Test_groupError_Unwrap(t *testing.T) {
@@ -122,6 +176,8 @@ func Test_groupError_Unwrap(t *testing.T) {
 
 	t.Run("errors.As", func(t *testing.T) {
 		t.Run("*os.PathError", func(t *testing.T) {
+			t.Parallel()
+
 			var target *os.PathError
 			if assert.ErrorAs(t, err, &target) { //nolint:testifylint
 				assert.Equal(t, wrongFileName, target.Path)
