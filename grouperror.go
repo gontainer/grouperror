@@ -144,8 +144,15 @@ func Collection(err error) []error {
 		return nil
 	}
 
-	if collection, ok := err.(interface{ Collection() []error }); ok { //nolint:errorlint
-		return collection.Collection()
+	if group, ok := err.(interface{ Collection() []error }); ok { //nolint:errorlint
+		collection := group.Collection()
+		errs := make([]error, 0, len(collection))
+
+		for _, x := range collection {
+			errs = append(errs, Collection(x)...)
+		}
+
+		return errs
 	}
 
 	return []error{err}
